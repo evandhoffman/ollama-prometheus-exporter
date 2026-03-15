@@ -2,6 +2,8 @@
 
 Prometheus exporter and reverse proxy for an [Ollama](https://ollama.com/) service, typically running at `http://localhost:11434`.
 
+GitHub repository: https://github.com/evandhoffman/ollama-prometheus-exporter
+
 The exporter exposes:
 
 - `GET /metrics` for Prometheus scraping
