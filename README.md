@@ -149,6 +149,95 @@ For example, if the exporter runs on `http://localhost:9497`, send requests to:
 
 Those requests will be forwarded to `OLLAMA_BASE_URL`.
 
+## Configuring Clients To Use The Proxy
+
+The key rule is simple:
+
+- Keep `OLLAMA_BASE_URL` pointed at the real Ollama server.
+- Point your clients at the exporter instead of the real Ollama server.
+
+Example topology:
+
+- Real Ollama: `http://192.168.1.110:11434`
+- Exporter/proxy: `http://192.168.1.120:9497`
+
+In that setup:
+
+- Set `OLLAMA_BASE_URL=http://192.168.1.110:11434` on the exporter
+- Configure clients to use `http://192.168.1.120:9497`
+
+### Ollama Clients
+
+Any client or tool that supports a custom Ollama base URL should be pointed at the exporter.
+
+Use:
+
+```text
+http://YOUR_EXPORTER_HOST:9497
+```
+
+Instead of:
+
+```text
+http://YOUR_OLLAMA_HOST:11434
+```
+
+Examples:
+
+- Old direct URL: `http://192.168.1.110:11434`
+- New proxied URL: `http://192.168.1.120:9497`
+
+### OpenClaw
+
+If OpenClaw has an Ollama base URL or provider endpoint setting, set that value to the exporter URL instead of the upstream Ollama URL.
+
+Use:
+
+```text
+http://YOUR_EXPORTER_HOST:9497
+```
+
+Do not use:
+
+```text
+http://YOUR_OLLAMA_HOST:11434
+```
+
+If OpenClaw is running in Docker Compose alongside this exporter, point OpenClaw at the exporter service name on the Compose network. For example:
+
+```text
+http://ollama-prometheus-exporter:9497
+```
+
+### Docker Compose Example
+
+If another service in the same Compose project should use this proxy, configure that service to talk to `http://ollama-prometheus-exporter:9497`.
+
+Example:
+
+```yaml
+services:
+  openclaw:
+    environment:
+      OLLAMA_BASE_URL: http://ollama-prometheus-exporter:9497
+
+  ollama-prometheus-exporter:
+    build:
+      context: .
+    environment:
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+```
+
+### Important Caveat
+
+Token metrics are only captured for requests that actually pass through the proxy.
+
+If some clients continue talking directly to Ollama at `:11434`, those requests will not appear in:
+
+- `ollama_prompt_tokens_total`
+- `ollama_generated_tokens_total`
+- `ollama_eval_seconds_total`
+
 ## Local Development
 
 This project targets Python 3.13+ and uses `uv`.
