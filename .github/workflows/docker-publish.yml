@@ -2,30 +2,16 @@ name: Docker Publish
 
 on:
   push:
-    tags:
-      - "v*"
+    branches:
+      - main
   workflow_dispatch:
-
-env:
-  REGISTRY: docker.io
-  IMAGE_NAME: ${{ vars.DOCKERHUB_IMAGE }}
 
 jobs:
   docker:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-
-      - name: Validate Docker Hub image configuration
-        run: |
-          if [ -z "${IMAGE_NAME}" ]; then
-            echo "Repository variable DOCKERHUB_IMAGE is not set."
-            echo "Set it to something like username/ollama-prometheus-exporter."
-            exit 1
-          fi
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -36,19 +22,13 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Extract Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=tag
-            type=raw,value=latest,enable={{is_default_branch}}
-
       - name: Build and push image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/ollama-prometheus-exporter:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/ollama-prometheus-exporter:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

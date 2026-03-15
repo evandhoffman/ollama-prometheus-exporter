@@ -264,7 +264,7 @@ uv run --extra dev ruff check .
 This repository includes two GitHub Actions workflows:
 
 - `CI`: runs tests and lint on pushes to `main` and on pull requests
-- `Docker Publish`: builds and pushes the container image to Docker Hub on version tags such as `v0.1.0`, or via manual dispatch
+- `Docker Publish`: builds and pushes the container image to Docker Hub on pushes to `main` and via manual dispatch
 
 ### CI Workflow
 
@@ -278,20 +278,18 @@ The CI workflow runs:
 
 To enable Docker publishing, configure these repository settings in GitHub:
 
-- Repository variable `DOCKERHUB_IMAGE`
-  Example: `yourdockerhubuser/ollama-prometheus-exporter`
 - Repository secret `DOCKERHUB_USERNAME`
 - Repository secret `DOCKERHUB_TOKEN`
 
 Once configured, the image publish workflow will:
 
 - build the Docker image from the included `Dockerfile`
-- push tag-based images for tags like `v0.1.0`
-- push `latest` when triggered from the default branch
+- push `${DOCKERHUB_USERNAME}/ollama-prometheus-exporter:latest`
+- push `${DOCKERHUB_USERNAME}/ollama-prometheus-exporter:${GITHUB_SHA}`
 
-Example release flow:
+Example behavior on push to `main`:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+docker pull yourdockerhubuser/ollama-prometheus-exporter:latest
+docker pull yourdockerhubuser/ollama-prometheus-exporter:<git-sha>
 ```
