@@ -258,3 +258,40 @@ Lint:
 ```bash
 uv run --extra dev ruff check .
 ```
+
+## GitHub Actions
+
+This repository includes two GitHub Actions workflows:
+
+- `CI`: runs tests and lint on pushes to `main` and on pull requests
+- `Docker Publish`: builds and pushes the container image to Docker Hub on version tags such as `v0.1.0`, or via manual dispatch
+
+### CI Workflow
+
+The CI workflow runs:
+
+- `uv sync --extra dev`
+- `uv run --extra dev pytest`
+- `uv run --extra dev ruff check .`
+
+### Docker Hub Publish Workflow
+
+To enable Docker publishing, configure these repository settings in GitHub:
+
+- Repository variable `DOCKERHUB_IMAGE`
+  Example: `yourdockerhubuser/ollama-prometheus-exporter`
+- Repository secret `DOCKERHUB_USERNAME`
+- Repository secret `DOCKERHUB_TOKEN`
+
+Once configured, the image publish workflow will:
+
+- build the Docker image from the included `Dockerfile`
+- push tag-based images for tags like `v0.1.0`
+- push `latest` when triggered from the default branch
+
+Example release flow:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
