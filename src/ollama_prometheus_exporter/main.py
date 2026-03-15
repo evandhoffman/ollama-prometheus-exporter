@@ -82,7 +82,7 @@ app = FastAPI(
 )
 
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 async def root() -> dict[str, object]:
     """Basic exporter metadata."""
 
