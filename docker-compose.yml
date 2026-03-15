@@ -1,0 +1,16 @@
+services:
+  ollama-prometheus-exporter:
+    container_name: ollama-prometheus-exporter
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "9497:9497"
+    environment:
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      EXPORTER_HOST: 0.0.0.0
+      EXPORTER_PORT: "9497"
+      OLLAMA_TIMEOUT_SECONDS: "5.0"
+      OLLAMA_VERIFY_TLS: "true"
+      LOG_LEVEL: INFO
