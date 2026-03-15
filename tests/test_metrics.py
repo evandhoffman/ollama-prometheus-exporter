@@ -1,4 +1,9 @@
-from ollama_prometheus_exporter.main import InferenceStatsCollector
+from types import SimpleNamespace
+
+import httpx
+
+from ollama_prometheus_exporter.config import Settings
+from ollama_prometheus_exporter.main import InferenceStatsCollector, _run_ollama_startup_check
 from ollama_prometheus_exporter.metrics import InferenceStats
 
 
@@ -52,3 +57,51 @@ def test_inference_stats_ignores_payloads_without_usage_fields() -> None:
     )
 
     assert stats is None
+
+
+class _FakeOllamaClient:
+    def __init__(self, outcomes: list[Exception | None]) -> None:
+        self._outcomes = outcomes
+        self.calls: list[float] = []
+
+    async def check_connection(self, *, timeout_seconds: float) -> None:
+        self.calls.append(timeout_seconds)
+        outcome = self._outcomes.pop(0)
+        if outcome is not None:
+            raise outcome
+
+
+async def test_startup_check_marks_connection_good_after_success() -> None:
+    client = _FakeOllamaClient([None])
+    settings = Settings()
+    state = SimpleNamespace(ollama_connection_ok=False)
+
+    await _run_ollama_startup_check(client, settings, state)
+
+    assert state.ollama_connection_ok is True
+    assert client.calls == [5.0]
+
+
+async def test_startup_check_retries_with_exponential_backoff(monkeypatch) -> None:
+    sleep_calls: list[float] = []
+
+    async def fake_sleep(delay: float) -> None:
+        sleep_calls.append(delay)
+
+    monkeypatch.setattr("ollama_prometheus_exporter.main.asyncio.sleep", fake_sleep)
+
+    client = _FakeOllamaClient(
+        [
+            httpx.ConnectError("boom"),
+            httpx.ConnectError("boom"),
+            None,
+        ]
+    )
+    settings = Settings(ollama_startup_check_max_backoff_seconds=30.0)
+    state = SimpleNamespace(ollama_connection_ok=False)
+
+    await _run_ollama_startup_check(client, settings, state)
+
+    assert state.ollama_connection_ok is True
+    assert client.calls == [5.0, 5.0, 5.0]
+    assert sleep_calls == [1.0, 2.0]

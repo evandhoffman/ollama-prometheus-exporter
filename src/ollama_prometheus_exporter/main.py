@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from collections.abc import AsyncIterator, Mapping
@@ -60,7 +61,16 @@ async def lifespan(app: FastAPI):
     configure_logging(settings)
     app.state.settings = settings
     app.state.ollama_client = OllamaClient(settings)
+    app.state.ollama_connection_ok = False
+    app.state.ollama_startup_check_task = asyncio.create_task(
+        _run_ollama_startup_check(app.state.ollama_client, settings, app.state)
+    )
     yield
+    app.state.ollama_startup_check_task.cancel()
+    try:
+        await app.state.ollama_startup_check_task
+    except asyncio.CancelledError:
+        pass
     await app.state.ollama_client.aclose()
 
 
@@ -94,7 +104,8 @@ async def root() -> dict[str, object]:
 async def health() -> dict[str, str]:
     """Basic process health."""
 
-    return {"status": "ok", "mode": "proxy"}
+    status = "ok" if app.state.ollama_connection_ok else "degraded"
+    return {"status": status, "mode": "proxy"}
 
 
 @app.get("/metrics")
@@ -253,6 +264,38 @@ def _filter_response_headers(headers: Mapping[str, str]) -> dict[str, str]:
         for key, value in headers.items()
         if key.lower() not in HOP_BY_HOP_HEADERS
     }
+
+
+async def _run_ollama_startup_check(
+    ollama_client: OllamaClient,
+    settings: Settings,
+    state: Any,
+) -> None:
+    """Check Ollama connectivity until it succeeds."""
+
+    backoff_seconds = 1.0
+    logger.info("Doing initial ollama connection test...")
+
+    while True:
+        try:
+            await ollama_client.check_connection(
+                timeout_seconds=settings.ollama_startup_check_timeout_seconds
+            )
+            state.ollama_connection_ok = True
+            logger.info("Connection to ollama server is good")
+            return
+        except httpx.HTTPError as exc:
+            state.ollama_connection_ok = False
+            logger.error(
+                "Initial connection to ollama server failed: %s. Retrying in %.1f seconds",
+                exc,
+                backoff_seconds,
+            )
+            await asyncio.sleep(backoff_seconds)
+            backoff_seconds = min(
+                backoff_seconds * 2,
+                settings.ollama_startup_check_max_backoff_seconds,
+            )
 
 
 def main() -> None:

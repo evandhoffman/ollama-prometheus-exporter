@@ -47,3 +47,9 @@ class OllamaClient:
         """Send a pre-built upstream request."""
 
         return await self._client.send(request, stream=stream)
+
+    async def check_connection(self, *, timeout_seconds: float) -> None:
+        """Verify that the upstream Ollama server is reachable."""
+
+        response = await self._client.get("/api/version", timeout=timeout_seconds)
+        response.raise_for_status()

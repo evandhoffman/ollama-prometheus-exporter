@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     exporter_host: str = Field(default="0.0.0.0")
     exporter_port: int = Field(default=9497)
     ollama_timeout_seconds: float = Field(default=5.0, gt=0)
+    ollama_startup_check_timeout_seconds: float = Field(default=5.0, gt=0)
+    ollama_startup_check_max_backoff_seconds: float = Field(default=30.0, gt=0)
     ollama_verify_tls: bool = Field(default=True)
     log_level: str = Field(default="INFO")
 
